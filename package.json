@@ -2,7 +2,7 @@
   "name": "md2outlook",
   "displayName": "md2outlook",
   "description": "Markdown to Outlook mail",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.83.0"
   },
@@ -17,7 +17,16 @@
     "commands": [
       {
         "command": "md2outlook.copyHtml",
-        "title": "Copy Html formated Markdown to Outlook"      }
+        "title": "md2outlook: Copy Html formated Markdown to Outlook"      
+      },
+      {
+        "command": "md2outlook.copyVscodeMdFileLink",
+        "title": "md2outlook: Copy Vscode MD file link"
+      },
+      {
+        "command": "md2outlook.copyGitMdFileLink",
+        "title": "md2outlook: Copy Vscode MD file link"
+      }
     ],
     "menus": {
       "commandPalette": [
@@ -38,7 +47,17 @@
             "default": ""
           }
         }
-        
+      },
+      {
+        "title": "Url translate",
+        "properties": {
+          "md2outlook.urlTranslate": {
+            "type": "array",
+            "markdownDescription": "Translation for local vscode links: `c:/src/gen4/Edk2,https://github.com/intel-restricted/firmware.boot.uefi.iafw.externalmirror.edk2/blob/main`",
+            "default": [],
+            "items": {"type":"string"}
+          }
+        }
       }
     ]
   },

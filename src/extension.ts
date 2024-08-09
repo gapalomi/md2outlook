@@ -3,6 +3,7 @@
 import path = require('path');
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import { API as GitAPI, GitExtension, APIState, Remote } from './git'; 
 
 
 const DEFAULT_STYLESHEET =/*html*/
@@ -11,7 +12,7 @@ const DEFAULT_STYLESHEET =/*html*/
 		border-collapse: collapse;
 	}
 	
-
+	
 	thead tr {
 		background-color: #009879;
 		color: #000000;
@@ -28,9 +29,9 @@ const DEFAULT_STYLESHEET =/*html*/
 		background-color: #f3f3f3;
 	}
 	
-
-
-
+	
+	
+	
 	body{
 		-ms-text-size-adjust: 100%;
 		-webkit-text-size-adjust: 100%;
@@ -42,18 +43,19 @@ const DEFAULT_STYLESHEET =/*html*/
 	}
 	
 	mark{
-        background-color: yellow;
-    }
-
+		background-color: yellow;
+	}
+	
 	blockquote{
 		background-color: rgb(245, 245, 220);
-        padding: 20px;
-        border-left-style: solid;
-        border-left-color: rgb(88, 171, 249);
-        border-left-width: thick;
+		padding: 20px;
+		border-left-style: solid;
+		border-left-color: rgb(88, 171, 249);
+		border-left-width: thick;
 	}
-
+	
 	pre{
+		border: 40px solid #ffffff;
 		mso-add-space:auto;
 		mso-line-height-alt:7.5pt;
 		background-color: #f4f4f4;
@@ -61,25 +63,27 @@ const DEFAULT_STYLESHEET =/*html*/
 		margin: 15px;
 		padding: 10px;
 	}
-
+	
 	code{
 		font-family: Consolas;
 		color: darkred;
 		font-size: 13px;
-
+	
 	}
-
+	
 	pre code{
+		
 		mso-add-space:auto;
 		-ms-text-size-adjust: 100%;
 		-webkit-text-size-adjust: 100%;
 		color: rgb(0, 0, 0);
 		mso-line-height-rule:exactly;
-		line-height:10px;
+		line-height:20px;
 		-ms-text-size-adjust: 100%;
+		
 	}
-
-
+	
+	
 	  
 	  /*!
 		Theme: GitHub
@@ -184,39 +188,20 @@ const DEFAULT_STYLESHEET =/*html*/
 	  }	
 	
 	  .quote {
-        font-family: Calibri;
-        font-style: italic;
-        font-weight: normal;
-        color: black;
-        padding-left: 10px;
-		border-left: 1px solid #03a9f4;
+		font-family: Calibri;
+		font-style: italic;
+		font-weight: normal;
+		color: black;
+	
+		border-left: 5px solid #03a9f4;
 		border-collapse: collapse;
-		border-left-width: medium;
-        background-color: #f4f4f4;
+		border-left-width: thick;
+		background-color: #f4f4f4;
+		text-align: left;
 	  }
-
+	
 	`;
 
-	const MERMAID_STYLESHEET = `
-:root {
-  --default-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Microsoft YaHei Light", sans-serif;
-  --font-monospace: 'Source Code Pro', monospace;
-  --background-primary: #ffffff;
-  --background-modifier-border: #ddd;
-  --text-accent: #705dcf;
-  --text-accent-hover: #7a6ae6;
-  --text-normal: #2e3338;
-  --background-secondary: #f2f3f5;
-  --background-secondary-alt: #e3e5e8;
-  --text-muted: #888888;
-  --font-mermaid: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Microsoft YaHei Light", sans-serif;
-  --text-error: #E4374B;
-  --background-primary-alt: '#fafafa';
-  --background-accent: '';
-  --interactive-accent: hsl( 254,  80%, calc( 68% + 2.5%));
-  --background-modifier-error: #E4374B;
-}
-`;
 
 // enable everything
 var hljs = require('highlight.js'); // https://highlightjs.org
@@ -246,11 +231,30 @@ ${body}
 </body>
 <script>
 
-function copyData(){
-	console.log('Hello World!');
+// Constants for retry mechanism
+const maxRetries = 100;
+const retryDelay = 100; // Delay in milliseconds
+
+async function  attemptCopy(retries = 0) {
+    try {
+        await copyData();
+        console.log('Copy successful');
+    } catch (error) {
+        if (retries < maxRetries) {
+            setTimeout(() => {
+                console.log('Retry #' + retries + 1);
+                attemptCopy(retries + 1);
+            }, retryDelay);
+        } else {
+            console.error('Failed to copy data after maximum retries:', error);
+            // Optionally, handle the maximum retry failure
+        }
+    }
+}
+
+async function copyData(){
 
 	var html = document.getElementsByTagName('html')[0].innerHTML;	
-
 
 	const data =
 	new ClipboardItem({
@@ -262,11 +266,12 @@ function copyData(){
 			type: "text/plain"
 		}),
 	});
-	navigator.clipboard.write([data]);
-	console.log('Copied document to clipboard');
+
+	let result = await navigator.clipboard.write([data]);
+	console.log("RESULT " + result)
 }
 
-window.onload = copyData();
+window.onload = attemptCopy();
 	
 </script>
 </html>`;
@@ -296,6 +301,21 @@ export function activate(context: vscode.ExtensionContext) {
 		let editor = vscode.window.activeTextEditor;
         if (editor) {
             let text = editor.document.getText();
+
+			// Replace urls if required
+			// let urslSetupString:string[] = loadedConfiguration.get("urlTranslate") as string[];
+			// let urls = urslSetupString.map((x)=>{return x.split(",");});
+			// const mdLinkRegex = /\[(.*?)\]\((.*):(\d+)\)/gi;
+			// let match;
+			// while ((match = mdLinkRegex.exec(text)) !== null) {
+			// 	const [, linkText, filePath, lineNumber] = match;
+			// 	const link = {
+			// 		linkText,
+			// 		filePath,
+			// 		lineNumber: parseInt(lineNumber),
+			// 	};
+			// }
+
             let html = md.render(text);
 
 			let styleSheet = DEFAULT_STYLESHEET;
@@ -309,9 +329,10 @@ export function activate(context: vscode.ExtensionContext) {
 			html = html.replaceAll("</blockquote>", "</th></tr></table>");
 			html = html.replaceAll("<span ", `<span style="margin:auto" `);
 
+
 			const htmlDocument = htmlTemplate(styleSheet, html, editor.document.fileName);
 			
-			console.log(htmlDocument);
+			
 			const panel = vscode.window.createWebviewPanel(
 				'md2Outlook', // Identifies the type of the webview. Used internally
 				path.basename(editor.document.fileName), // Title of the panel displayed to the user
@@ -329,6 +350,92 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.copyVscodeMdFileLink", async (editor)=>{
+		const selection = editor.selection;
+		const text = editor.document.getText(selection);
+
+		const editorUri = editor.document.uri; // Get the Uri of the current document
+		const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : null; // Get the Uri of the first workspace folder
+		const relativePath = vscode.workspace.asRelativePath(editorUri, false); // Get the relative path to the workspace folder
+		const filePath = editor.document.uri.fsPath.replaceAll("\\","\/");
+
+
+		const mdLink = "vscode://file/" + filePath  + ":" + (selection.start.line+1).toString();
+		let mdCopy = `[${relativePath  + ":" + (selection.start.line+1).toString()}](${mdLink})`;
+
+		if(text.length > 0){
+
+			if(selection.isSingleLine){
+				mdCopy = `[\`${text}\`](${mdLink})`;
+			}else{
+				mdCopy = mdCopy + `
+\`\`\` ${editor.document.languageId}
+${text}
+\`\`\``;
+			}
+			
+
+		}
+		
+		vscode.env.clipboard.writeText(mdCopy);
+		vscode.window.showInformationMessage(`📋 ${mdLink}`);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.copyGitMdFileLink", async (editor)=>{
+		const selection = editor.selection;
+		const text = editor.document.getText(selection);
+
+		const editorUri = editor.document.uri; // Get the Uri of the current document
+		const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : null; // Get the Uri of the first workspace folder
+		const relativePath = vscode.workspace.asRelativePath(editorUri, false); // Get the relative path to the workspace folder
+		const filePath = editor.document.uri.fsPath.replaceAll("\\","\/");
+
+		let url = "";
+        try {
+            const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
+            if(gitExtension){
+                const gitAPI = gitExtension.exports.getAPI(1);
+				for (const repo of gitAPI.repositories) {
+					const repoPath = repo.rootUri.fsPath.replaceAll("\\","/");
+					if(filePath.startsWith(repoPath)){
+						let gitUrl = repo.state.remotes[0].fetchUrl?.replace(/\.git$/, '');
+						const commit = repo.state.HEAD!.commit;
+						url = `${gitUrl}/blob/${commit}${filePath.slice(repoPath.length)}#L${selection.start.line}`;
+
+					}
+				}
+            }  
+        } catch (error) {
+            console.error(error);
+			vscode.window.showErrorMessage(error as string);
+        }
+
+		if(url.length === 0){
+			vscode.window.showErrorMessage("Problem getting remote url");
+			return;
+		}
+
+		const mdLink = url;
+		let mdCopy = `[${relativePath  + ":" + (selection.start.line+1).toString()}](${mdLink})`;
+
+		if(text.length > 0){
+
+			if(selection.isSingleLine){
+				mdCopy = `[\`${text}\`](${mdLink})`;
+			}else{
+				mdCopy = mdCopy + `
+\`\`\` ${editor.document.languageId}
+${text}
+\`\`\``;
+			}
+			
+
+		}
+		
+		vscode.env.clipboard.writeText(mdCopy);
+		vscode.window.showInformationMessage(`📋 ${mdLink}`);
+	}));
 }
 
 // This method is called when your extension is deactivated
