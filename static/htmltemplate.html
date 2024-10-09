@@ -34,7 +34,7 @@ async function  attemptCopy(retries = 0) {
 async function copyData(){
 
 	var html = document.getElementsByTagName('html')[0].innerHTML;	
-
+    console.log(html);
 	const data =
 	new ClipboardItem({
 		"text/html": new Blob([html], {
@@ -47,7 +47,7 @@ async function copyData(){
 	});
 
 	let result = await navigator.clipboard.write([data]);
-	console.log("RESULT " + result)
+
 }
 
 window.onload = attemptCopy();
