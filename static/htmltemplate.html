@@ -1,0 +1,56 @@
+<html>
+<head>
+  <title>{{title}}</title>
+  <style>
+    {{{stylesheet}}}
+  </style>
+</head>
+<body>
+{{{body}}}
+</body>
+<script>
+
+// Constants for retry mechanism
+const maxRetries = 100;
+const retryDelay = 100; // Delay in milliseconds
+
+async function  attemptCopy(retries = 0) {
+    try {
+        await copyData();
+        console.log('Copy successful');
+    } catch (error) {
+        if (retries < maxRetries) {
+            setTimeout(() => {
+                console.log('Retry #' + retries + 1);
+                attemptCopy(retries + 1);
+            }, retryDelay);
+        } else {
+            console.error('Failed to copy data after maximum retries:', error);
+            // Optionally, handle the maximum retry failure
+        }
+    }
+}
+
+async function copyData(){
+
+	var html = document.getElementsByTagName('html')[0].innerHTML;	
+
+	const data =
+	new ClipboardItem({
+		"text/html": new Blob([html], {
+			// @ts-ignore
+			type: ["text/html", 'text/plain']
+		}),
+		"text/plain": new Blob([html], {
+			type: "text/plain"
+		}),
+	});
+
+	let result = await navigator.clipboard.write([data]);
+	console.log("RESULT " + result)
+}
+
+window.onload = attemptCopy();
+	
+</script>
+</html>
