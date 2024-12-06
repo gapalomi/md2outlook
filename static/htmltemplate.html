@@ -1,56 +1,47 @@
 <html>
-<head>
-  <title>{{title}}</title>
-  <style>
-    {{{stylesheet}}}
-  </style>
-</head>
-<body>
-{{{body}}}
-</body>
-<script>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script>
 
-// Constants for retry mechanism
-const maxRetries = 100;
-const retryDelay = 100; // Delay in milliseconds
+        <title>{{title}}</title>
+        <style>
+            {{{stylesheet}}}
+        </style>
+    </head>
 
-async function  attemptCopy(retries = 0) {
-    try {
-        await copyData();
-        console.log('Copy successful');
-    } catch (error) {
-        if (retries < maxRetries) {
-            setTimeout(() => {
-                console.log('Retry #' + retries + 1);
-                attemptCopy(retries + 1);
-            }, retryDelay);
-        } else {
-            console.error('Failed to copy data after maximum retries:', error);
-            // Optionally, handle the maximum retry failure
-        }
-    }
-}
+    <body>
 
-async function copyData(){
+        <button class="btn" data-clipboard-target="#foo" hidden>
+            copy
+        </button>
 
-	var html = document.getElementsByTagName('html')[0].innerHTML;	
-    console.log(html);
-	const data =
-	new ClipboardItem({
-		"text/html": new Blob([html], {
-			// @ts-ignore
-			type: ["text/html", 'text/plain']
-		}),
-		"text/plain": new Blob([html], {
-			type: "text/plain"
-		}),
-	});
+        <div id="foo">
+            {{{body}}}
+        </div>
 
-	let result = await navigator.clipboard.write([data]);
+    </body>
 
-}
 
-window.onload = attemptCopy();
-	
-</script>
+    <script>
+        console.log('clipboard.js loaded');
+        new ClipboardJS('.btn');
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const elements = document.querySelectorAll('[class^="language-"]');
+            for (const element of elements) {
+                const className = Array.from(element.classList).find(cls => cls.startsWith('language-'));
+                if (className) {
+                    const language = className.replace('language-', '');
+                    const languageDiv = document.createElement('div');
+
+                    languageDiv.classList.add('language-title');
+                    languageDiv.textContent = language;
+                    languageDiv.style.textAlign = 'right'; // Align content to the right
+                    element.parentNode.insertBefore(languageDiv, element);
+                }
+            }
+
+            document.querySelector('.btn').click();
+            window.getSelection().removeAllRanges();  // Clear selection
+        });
+    </script>
 </html>

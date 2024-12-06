@@ -30,6 +30,7 @@ body{
     font-size: 14.5px;
     line-height: 1.6;
     word-wrap: break-word;
+    background: white;
 }
 
 mark{
@@ -51,6 +52,9 @@ pre{
     mso-line-height-alt:7.5pt;
     background-color: #f4f4f4;
     color: black;
+    border: solid gray thin;
+    border-radius: 10px;
+    padding: 18px;
 
 }
 
@@ -58,7 +62,6 @@ code{
     font-family: Consolas;
     color: darkred;
     font-size: 13px;
-
 }
 
 pre code{
@@ -70,7 +73,7 @@ pre code{
     mso-line-height-rule:exactly;
     line-height:20px;
     -ms-text-size-adjust: 100%;
-    
+
 }
 
 
