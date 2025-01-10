@@ -3,7 +3,7 @@
   "displayName": "md2outlook",
   "description": "Markdown to Outlook mail",
   "publisher": "gapalomi",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "engines": {
     "vscode": "^1.83.0"
   },
@@ -18,18 +18,31 @@
     "commands": [
       {
         "command": "md2outlook.copyHtml",
-        "title": "md2outlook: Copy Html formated Markdown to Outlook"
+        "title": "md2outlook: Export markdown to Outlook",
+        "icon": "$(mail)"
       },
       {
         "command": "md2outlook.copyVscodeMdFileLink",
-        "title": "md2outlook: Copy Vscode MD file link"
+        "title": "md2outlook: Copy markdown snipped (vscode)"
       },
       {
         "command": "md2outlook.copyGitMdFileLink",
-        "title": "md2outlook: Copy Vscode MD file link"
+        "title": "md2outlook: Copy markdown snipped (github)"
+      },
+      {
+        "command": "md2outlook.newTempMarkdown",
+        "title": "md2outlook: New Temp markdown file"
       }
     ],
     "menus": {
+      "editor/title": [
+      {
+        "command": "md2outlook.copyHtml",
+        "when": "editorLangId == markdown",
+        "group": "navigation",
+        "icon": "$(export)"
+      }
+      ],
       "commandPalette": [
         {
           "command": "md2outlook.copyHtml",

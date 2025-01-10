@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { API as GitAPI, GitExtension, APIState, Remote } from './git'; 
 let gContext: vscode.ExtensionContext;
+import * as child_process from 'child_process';
 import * as Handlebars from 'handlebars';
 let DEFAULT_STYLESHEET = '';
 
@@ -100,6 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
 			
 			panel.webview.html = htmlDocument;
 			vscode.window.showInformationMessage("Copied to Clipboard 📋");
+			
             
         }
 		
@@ -107,36 +109,21 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
-	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.copyVscodeMdFileLink", async (editor)=>{
-		const selection = editor.selection;
-		const text = editor.document.getText(selection);
+	context.subscriptions.push(vscode.commands.registerCommand("md2outlook.newTempMarkdown", async () => {
+		const date = new Date();
+		const fileName = `${date.getTime()}_md2outlook.md`;
+		const tempDir = require('os').tmpdir();
+		const filePath = path.join(tempDir, fileName);
+		const fileUri = vscode.Uri.file(filePath);
 
-		const editorUri = editor.document.uri; // Get the Uri of the current document
-		const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : null; // Get the Uri of the first workspace folder
-		const relativePath = vscode.workspace.asRelativePath(editorUri, false); // Get the relative path to the workspace folder
-		const filePath = editor.document.uri.fsPath.replaceAll("\\","\/");
-
-
-		const mdLink = "vscode://file/" + filePath  + ":" + (selection.start.line+1).toString();
-		let mdCopy = `[${relativePath  + ":" + (selection.start.line+1).toString()}](${mdLink})`;
-
-		if(text.length > 0){
-
-			if(selection.isSingleLine){
-				mdCopy = `[\`${text}\`](${mdLink})`;
-			}else{
-				mdCopy = mdCopy + `
-\`\`\` ${editor.document.languageId}
-${text}
-\`\`\``;
-			}
-			
-
-		}
-		
-		vscode.env.clipboard.writeText(mdCopy);
-		vscode.window.showInformationMessage(`📋 ${mdLink}`);
+		await vscode.workspace.fs.writeFile(fileUri, new Uint8Array());
+		const newFile = await vscode.workspace.openTextDocument(fileUri);
+		const editor = await vscode.window.showTextDocument(newFile);
+		await vscode.commands.executeCommand('markdown.showPreviewToSide', fileUri);
+		await vscode.window.showTextDocument(editor.document, editor.viewColumn);
 	}));
+
+
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.copyGitMdFileLink", async (editor)=>{
 		const selection = editor.selection;
