@@ -3,7 +3,7 @@
   "displayName": "md2outlook",
   "description": "Markdown to Outlook mail",
   "publisher": "gapalomi",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "engines": {
     "vscode": "^1.83.0"
   },
