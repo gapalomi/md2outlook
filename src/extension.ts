@@ -7,24 +7,11 @@ import { API as GitAPI, GitExtension, APIState, Remote } from './git';
 let gContext: vscode.ExtensionContext;
 import * as child_process from 'child_process';
 import * as Handlebars from 'handlebars';
+import { mdPaste } from './paste';
+import { renderMarkdown } from './markdown';
 let DEFAULT_STYLESHEET = '';
 
 
-// enable everything
-var hljs = require('highlight.js'); // https://highlightjs.org
-
-// Actual default values
-var md = require('markdown-it')({
-  highlight: function (str:any, lang:any) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(str, { language: lang }).value;
-      } catch (__) {}
-    }
-
-    return ''; // use external default escaping
-  }
-}).use(require('markdown-it-mark'));;
 
 var loadedConfiguration: vscode.WorkspaceConfiguration;
 function updateConfiguration() {
@@ -56,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
             let text = editor.document.getText();
 
 
-            let html = md.render(text);
+            let html = renderMarkdown(text);
 
 			let styleSheet = fs.readFileSync(path.join(gContext.extensionPath,'static', 'theme.css'), 'utf-8');;
 			let cssPath:string|undefined = loadedConfiguration.get("cssPath");
@@ -207,6 +194,12 @@ ${text}
 		
 		vscode.env.clipboard.writeText(mdCopy);
 		vscode.window.showInformationMessage(`📋 ${mdLink}`);
+	}));
+
+
+
+	context.subscriptions.push(vscode.commands.registerCommand("md2outlook.paste", async () => {
+		mdPaste();
 	}));
 }
 
