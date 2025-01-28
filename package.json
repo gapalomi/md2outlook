@@ -3,7 +3,7 @@
   "displayName": "md2outlook",
   "description": "Markdown to Outlook mail",
   "publisher": "gapalomi",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "engines": {
     "vscode": "^1.83.0"
   },
@@ -20,6 +20,11 @@
         "command": "md2outlook.copyHtml",
         "title": "md2outlook: Export markdown to Outlook",
         "icon": "$(mail)"
+      },
+      {
+        "command": "md2outlook.openInWebBrowser",
+        "title": "md2outlook: Open in web browser",
+        "icon": "$(globe)"
       },
       {
         "command": "md2outlook.copyVscodeMdFileLink",
@@ -43,8 +48,12 @@
         {
           "command": "md2outlook.copyHtml",
           "when": "editorLangId == markdown",
-          "group": "navigation",
-          "icon": "$(export)"
+          "group": "navigation"
+        },
+        {
+          "command": "md2outlook.openInWebBrowser",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -79,6 +88,13 @@
           }
         }
       }
+    ],
+    "keybindings": [
+      {
+        "command": "md2outlook.paste",
+        "key": "ctrl+v",
+        "when": "editorLangId == markdown"
+      }
     ]
   },
   "scripts": {
@@ -112,6 +128,7 @@
     "jsdom": "^26.0.0",
     "markdown-it": "^13.0.2",
     "markdown-it-mark": "^3.0.1",
+    "tslib": "^2.8.1",
     "turndown": "^7.2.0",
     "turndown-plugin-gfm": "^1.0.2",
     "xclip": "^1.0.7"

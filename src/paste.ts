@@ -73,7 +73,8 @@ async function createImageFolder(){
             const tempDir = require('os').tmpdir();
             imageFolder = vscode.Uri.file(tempDir);
         }else{
-            imageFolder = document.uri.with({path: document.uri.path + "_images"});
+            const parsedPath = path.parse(document.uri.fsPath);
+            imageFolder = document.uri.with({path: path.join(parsedPath.dir, "images_" + parsedPath.name).replace(/\\/g, '/')});
 
         }
         await vscode.workspace.fs.createDirectory(imageFolder);
@@ -102,7 +103,9 @@ function makeRelativePath(to: string): string | null {
         if (relativePath.startsWith('..')) {
             return null;
         }
-        return relativePath;
+        const posixRelativePath = relativePath.split(path.sep).join(path.posix.sep);
+
+        return posixRelativePath;
     }
     return null;
 }

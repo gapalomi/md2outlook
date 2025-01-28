@@ -10,6 +10,7 @@ import * as Handlebars from 'handlebars';
 import { mdPaste } from './paste';
 import { renderMarkdown } from './markdown';
 let DEFAULT_STYLESHEET = '';
+import { exec } from 'child_process';
 
 
 
@@ -108,6 +109,20 @@ export function activate(context: vscode.ExtensionContext) {
 		const editor = await vscode.window.showTextDocument(newFile);
 		await vscode.commands.executeCommand('markdown.showPreviewToSide', fileUri);
 		await vscode.window.showTextDocument(editor.document, editor.viewColumn);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.openInWebBrowser", async (editor) => {
+		const editorUri = editor.document.uri; // Get the Uri of the current document
+		const filePath = editorUri.fsPath.replace(/\\/g, '/'); // Replace backslashes with forward slashes
+		const fileUrl = `file:///${filePath}`; // Create the file URL
+	
+		exec(`start msedge "${fileUrl}"`, (error, stdout, stderr) => {
+			if (error) {
+				vscode.window.showErrorMessage(`Error opening file in Edge: ${error.message}`);
+				return;
+			}
+			vscode.window.showInformationMessage("File opened in Edge browser");
+		});
 	}));
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.copyVscodeMdFileLink", async (editor)=>{
