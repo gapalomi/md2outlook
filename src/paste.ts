@@ -33,17 +33,55 @@ async function pasteText(cb: xclip.IClipboard){
     writeToEditor(text);
 }
 
-async function pasteImage(cb: xclip.IClipboard){
+
+async function getImageDescription(): Promise<string> {
+    const options: vscode.InputBoxOptions = {
+        prompt: "Enter image name",
+        placeHolder: "Image name"
+    };
+    const imageName = await vscode.window.showInputBox(options);
+    return imageName ? imageName.trim() : '';
+}
+
+async function pasteImage(cb: xclip.IClipboard) {
     const folderPath = await createImageFolder();
-    if (!folderPath){
+    if (!folderPath) {
         return;
     }
-    const fileName = path.join(folderPath.fsPath, generateUUID() + ".png");
+    const imageDescription = await getImageDescription();
+    
+    if (imageDescription === '') {
+        vscode.window.showErrorMessage("Image name is required.");
+        return;
+    }
+
+    const imageName = imageDescription.replace(/\s/g, '_');
+
+
+    const fileName = path.join(folderPath.fsPath, imageName + ".png");
+
+    // Check if file already exists
+    if (await fileExists(fileName)) {
+        const overwrite = await vscode.window.showWarningMessage(`File ${imageName}.png already exists. Overwrite?`, 'Yes', 'No');
+        if (overwrite !== 'Yes') {
+            return;
+        }
+    }
+
     const imagePath = await cb.getImage(fileName);
     const relativeImagePath = makeRelativePath(imagePath);
 
-    const markdown = `![image](${relativeImagePath})`;
+    const markdown = `![${imageDescription}](${relativeImagePath})`;
     writeToEditor(markdown);
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+    try {
+        await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export async function getType(cb: xclip.IClipboard) {
