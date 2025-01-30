@@ -34,13 +34,13 @@ async function pasteText(cb: xclip.IClipboard){
 }
 
 
-async function getImageDescription(): Promise<string> {
+async function getImageDescription(): Promise<string|undefined> {
     const options: vscode.InputBoxOptions = {
         prompt: "Enter image name",
         placeHolder: "Image name"
     };
     const imageName = await vscode.window.showInputBox(options);
-    return imageName ? imageName.trim() : '';
+    return imageName;
 }
 
 async function pasteImage(cb: xclip.IClipboard) {
@@ -48,11 +48,15 @@ async function pasteImage(cb: xclip.IClipboard) {
     if (!folderPath) {
         return;
     }
-    const imageDescription = await getImageDescription();
+    let imageDescription = await getImageDescription();
     
-    if (imageDescription === '') {
-        vscode.window.showErrorMessage("Image name is required.");
+    if(imageDescription === undefined){
         return;
+    }
+    imageDescription = imageDescription.trim();
+
+    if (imageDescription === '') {
+        imageDescription = generateUUID();
     }
 
     const imageName = imageDescription.replace(/\s/g, '_');
@@ -107,14 +111,24 @@ async function createImageFolder(){
     if (editor) {
         const document = editor.document;
         let imageFolder:vscode.Uri;
+
         if(document.uri.scheme !== "file"){
             const tempDir = require('os').tmpdir();
             imageFolder = vscode.Uri.file(tempDir);
         }else{
+            let loadedConfiguration = vscode.workspace.getConfiguration('md2outlook');    
+            let imagePath:string|undefined = loadedConfiguration.get("imagesFolder");
             const parsedPath = path.parse(document.uri.fsPath);
-            imageFolder = document.uri.with({path: path.join(parsedPath.dir, "images_" + parsedPath.name).replace(/\\/g, '/')});
+
+            if(imagePath && imagePath !== ""){
+                imageFolder = document.uri.with({path: path.join(parsedPath.dir, imagePath.replace(/\s/g, '_')).replace(/\\/g, '/')});
+            }else{
+                imageFolder = document.uri.with({path: path.join(parsedPath.dir, "images_" + parsedPath.name.replace(/\s/g, '_')).replace(/\\/g, '/')});
+            }
 
         }
+        
+
         await vscode.workspace.fs.createDirectory(imageFolder);
         return imageFolder;
     }

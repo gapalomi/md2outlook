@@ -76,6 +76,17 @@
         }
       },
       {
+        "title": "md2outlook",
+        "properties": {
+          "md2outlook.imagesFolder": {
+            "order": 2,
+            "type": "string",
+            "markdownDescription": "If set, it will copy images to this folder",
+            "default": ""
+          }
+        }
+      },
+      {
         "title": "Url translate",
         "properties": {
           "md2outlook.urlTranslate": {
@@ -90,11 +101,7 @@
       }
     ],
     "keybindings": [
-      {
-        "command": "md2outlook.paste",
-        "key": "ctrl+v",
-        "when": "editorLangId == markdown"
-      }
+
     ]
   },
   "scripts": {
