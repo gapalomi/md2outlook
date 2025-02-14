@@ -100,9 +100,7 @@
         }
       }
     ],
-    "keybindings": [
-
-    ]
+    "keybindings": []
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

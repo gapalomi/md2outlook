@@ -41,9 +41,10 @@ export function activate(context: vscode.ExtensionContext) {
 		// get current editor text
 		let editor = vscode.window.activeTextEditor;
         if (editor) {
-            let text = editor.document.getText();
+			
+			let text = editor.document.getText(editor.selection.isEmpty ? undefined : editor.selection);
 
-
+			
             let html = renderMarkdown(text);
 
 			let styleSheet = fs.readFileSync(path.join(gContext.extensionPath,'static', 'theme.css'), 'utf-8');;

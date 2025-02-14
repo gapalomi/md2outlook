@@ -1,15 +1,17 @@
 <html>
     <head>
         <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css">
 
         <title>{{title}}</title>
         <style>
             {{{stylesheet}}}
         </style>
     </head>
+    
 
     <body>
-
+        <i class="devicon-devicon-typescript"></i>
         <button class="btn" data-clipboard-target="#foo" hidden>
             copy
         </button>
@@ -34,7 +36,9 @@
                     const languageDiv = document.createElement('div');
 
                     languageDiv.classList.add('language-title');
-                    languageDiv.textContent = language;
+                    
+                    languageDiv.innerHTML = `<i class="devicon-${language}-plain colored"></i> ${language}`;
+
                     languageDiv.style.textAlign = 'right'; // Align content to the right
                     element.parentNode.insertBefore(languageDiv, element);
                 }
