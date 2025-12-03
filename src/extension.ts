@@ -9,6 +9,8 @@ import * as child_process from 'child_process';
 import * as Handlebars from 'handlebars';
 import { mdPaste } from './paste';
 import { renderMarkdown } from './markdown';
+import { markdownToConfluence } from './confluence';
+import { replaceVsCodeLinksToGithub } from './githubLinks';
 let DEFAULT_STYLESHEET = '';
 import { exec } from 'child_process';
 
@@ -17,6 +19,33 @@ import { exec } from 'child_process';
 var loadedConfiguration: vscode.WorkspaceConfiguration;
 function updateConfiguration() {
 	vscode.workspace.getConfiguration('md2outlook');
+}
+
+function dedent(text: string): string {
+    const lines = text.split('\n');
+    let minIndent = Infinity;
+    
+    for (const line of lines) {
+        if (line.trim().length === 0) {
+            continue;
+        }
+        const match = line.match(/^\s*/);
+        const indent = match ? match[0].length : 0;
+        if (indent < minIndent) {
+            minIndent = indent;
+        }
+    }
+    
+    if (minIndent === Infinity || minIndent === 0) {
+        return text;
+    }
+    
+    return lines.map(line => {
+        if (line.trim().length === 0) {
+            return '';
+        }
+        return line.substring(minIndent);
+    }).join('\n');
 }
 
 // This method is called when your extension is activated
@@ -110,6 +139,16 @@ export function activate(context: vscode.ExtensionContext) {
 		const editor = await vscode.window.showTextDocument(newFile);
 		await vscode.commands.executeCommand('markdown.showPreviewToSide', fileUri);
 		await vscode.window.showTextDocument(editor.document, editor.viewColumn);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand("md2outlook.insertDate", () => {
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			const date = new Date().toLocaleDateString();
+			editor.edit(editBuilder => {
+				editBuilder.insert(editor.selection.active, date);
+			});
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.openInWebBrowser", async (editor) => {
@@ -213,6 +252,21 @@ ${text}
 	}));
 
 
+
+	context.subscriptions.push(vscode.commands.registerCommand('md2outlook.copyConfluence', async () => {
+		let editor = vscode.window.activeTextEditor;
+        if (editor) {
+			let text = editor.document.getText(editor.selection.isEmpty ? undefined : editor.selection);
+			text = dedent(text);
+            let confluence = markdownToConfluence(text);
+			await vscode.env.clipboard.writeText(confluence);
+			vscode.window.showInformationMessage("Confluence markup copied to clipboard 📋");
+        }
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('md2outlook.vscodeLinksToGithub', async () => {
+		await replaceVsCodeLinksToGithub();
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand("md2outlook.paste", async () => {
 		mdPaste();

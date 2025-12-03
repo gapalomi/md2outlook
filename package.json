@@ -22,6 +22,21 @@
         "icon": "$(mail)"
       },
       {
+        "command": "md2outlook.copyConfluence",
+        "title": "md2outlook: Copy to Confluence",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "md2outlook.vscodeLinksToGithub",
+        "title": "md2outlook: vscode links to github",
+        "icon": "$(github)"
+      },
+      {
+        "command": "md2outlook.insertDate",
+        "title": "md2outlook: Insert date",
+        "icon": "$(mail)"
+      },
+      {
         "command": "md2outlook.openInWebBrowser",
         "title": "md2outlook: Open in web browser",
         "icon": "$(globe)"
@@ -47,6 +62,11 @@
       "editor/title": [
         {
           "command": "md2outlook.copyHtml",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        },
+        {
+          "command": "md2outlook.copyConfluence",
           "when": "editorLangId == markdown",
           "group": "navigation"
         },
