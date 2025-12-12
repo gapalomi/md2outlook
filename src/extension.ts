@@ -11,6 +11,9 @@ import { mdPaste } from './paste';
 import { renderMarkdown } from './markdown';
 import { markdownToConfluence } from './confluence';
 import { replaceVsCodeLinksToGithub } from './githubLinks';
+import * as xclip from "xclip";
+import * as os from 'os';
+import { URL } from 'url';
 let DEFAULT_STYLESHEET = '';
 import { exec } from 'child_process';
 
@@ -87,6 +90,10 @@ export function activate(context: vscode.ExtensionContext) {
 			html = html.replaceAll("</blockquote>", "</th></tr></table>");
 			html = html.replaceAll("<span ", `<span style="margin:auto" `);
 
+			// Wrap code blocks in a table for Outlook border support
+			html = html.replaceAll("<pre>", `<table cellpadding="10" cellspacing="0" style="background-color:#f6f8fa;border:1px solid #d0d7de;border-radius:3px;" bgcolor="#f6f8fa"><tr><td><pre style="margin:0;border:none;background-color:#f6f8fa;">`);
+			html = html.replaceAll("</pre>", `</pre></td></tr></table>`);
+
 			let htmlTemplate = fs.readFileSync(path.join(gContext.extensionPath,'static', 'htmlTemplate.html'), 'utf-8');;
 			let template = Handlebars.compile(htmlTemplate);
 			let data = {title:editor.document.fileName, stylesheet:styleSheet, body:html};
@@ -105,22 +112,23 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}
 
+            const tempDir = os.tmpdir();
+            const tempFile = path.join(tempDir, `md2outlook_${Date.now()}.html`);
+            fs.writeFileSync(tempFile, htmlDocument);
+            const tempUrl = new URL(`file://${tempFile}`);
 
-			let localResourcePath = vscode.Uri.file(path.dirname(editor.document.uri.fsPath));
-			const panel = vscode.window.createWebviewPanel(
-				'md2Outlook', // Identifies the type of the webview. Used internally
-				path.basename(editor.document.fileName), // Title of the panel displayed to the user
-				vscode.ViewColumn.One, // Editor column to show the new webview panel in.
-				{
-					enableScripts: true,
-					localResourceRoots: [localResourcePath]
-				} // Webview options. More on these later.
-			  );
-			
-			panel.webview.html = htmlDocument;
-			vscode.window.showInformationMessage("Copied to Clipboard 📋");
-			
+            const shell = xclip.getShell();
+            const cb = shell.getClipboard();
+            await cb.copyTextHtml(tempUrl);
             
+            // Clean up temp file after a short delay to ensure clipboard tool has read it
+            setTimeout(() => {
+                if (fs.existsSync(tempFile)) {
+                    fs.unlinkSync(tempFile);
+                }
+            }, 1000);
+
+			vscode.window.showInformationMessage("Copied to Clipboard 📋");
         }
 		
 	});
