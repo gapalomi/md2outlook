@@ -86,13 +86,13 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			//WA to generate quotes
-			html = html.replaceAll("<blockquote>", `<table><tr><th class="quote">`);
-			html = html.replaceAll("</blockquote>", "</th></tr></table>");
+			html = html.replaceAll("<blockquote>", `<table width="80%" cellspacing="0" cellpadding="0" style="width:80%"><tr><td class="quote">`);
+			html = html.replaceAll("</blockquote>", "</td></tr></table><p>&nbsp;</p>");
 			html = html.replaceAll("<span ", `<span style="margin:auto" `);
 
 			// Wrap code blocks in a table for Outlook border support
-			html = html.replaceAll("<pre>", `<table cellpadding="10" cellspacing="0" style="background-color:#f6f8fa;border:1px solid #d0d7de;border-radius:3px;" bgcolor="#f6f8fa"><tr><td><pre style="margin:0;border:none;background-color:#f6f8fa;">`);
-			html = html.replaceAll("</pre>", `</pre></td></tr></table>`);
+			html = html.replaceAll("<pre>", `<table width="80%" cellpadding="5" cellspacing="0" style="width:80%;background-color:#f6f8fa;border:1px solid #d0d7de;border-radius:3px;" bgcolor="#f6f8fa"><tr><td><pre style="margin:0;border:none;background-color:#f6f8fa;">`);
+			html = html.replaceAll("</pre>", `</pre></td></tr></table><p>&nbsp;</p>`);
 
 			let htmlTemplate = fs.readFileSync(path.join(gContext.extensionPath,'static', 'htmlTemplate.html'), 'utf-8');;
 			let template = Handlebars.compile(htmlTemplate);

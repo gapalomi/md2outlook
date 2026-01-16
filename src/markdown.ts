@@ -4,17 +4,54 @@ import { htmlToText } from "html-to-text";
 import TurndownService from "turndown";
 var turndownPluginGfm = require("turndown-plugin-gfm");
 
+const styleRules = [
+  { selectors: [".hljs-doctag", ".hljs-keyword", ".hljs-meta .hljs-keyword", ".hljs-template-tag", ".hljs-template-variable", ".hljs-type", ".hljs-variable.language_"], style: "color: #d73a49" },
+  { selectors: [".hljs-title", ".hljs-title.class_", ".hljs-title.class_.inherited__", ".hljs-title.function_"], style: "color: #6f42c1" },
+  { selectors: [".hljs-attr", ".hljs-attribute", ".hljs-literal", ".hljs-meta", ".hljs-number", ".hljs-operator", ".hljs-selector-attr", ".hljs-selector-class", ".hljs-selector-id", ".hljs-variable"], style: "color: #005cc5" },
+  { selectors: [".hljs-meta .hljs-string", ".hljs-regexp", ".hljs-string"], style: "color: #032f62" },
+  { selectors: [".hljs-built_in", ".hljs-symbol"], style: "color: #e36209" },
+  { selectors: [".hljs-code", ".hljs-comment", ".hljs-formula"], style: "color: #6a737d" },
+  { selectors: [".hljs-name", ".hljs-quote", ".hljs-selector-pseudo", ".hljs-selector-tag"], style: "color: #22863a" },
+  { selectors: [".hljs-subst"], style: "color: #24292e" }
+];
+
+function applyInlineStyles(html: string): string {
+  try {
+    const dom = new JSDOM(html);
+    const doc = dom.window.document;
+
+    for (const rule of styleRules) {
+      for (const selector of rule.selectors) {
+        const elements = doc.querySelectorAll(selector);
+        elements.forEach((element: any) => {
+          element.style.cssText += (element.style.cssText && !element.style.cssText.endsWith(";") ? ";" : "") + rule.style;
+        });
+      }
+    }
+
+    return doc.body.innerHTML;
+  } catch (error) {
+    console.error("Error applying inline styles:", error);
+    return html;
+  }
+}
+
 var md = require("markdown-it")({
   highlight: function (str: any, lang: any) {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return hljs.highlight(str, { language: lang }).value;
+        const highlighted = hljs.highlight(str, { language: lang }).value;
+        return applyInlineStyles(highlighted);
       } catch (__) {}
     }
 
     return ""; // use external default escaping
   },
 }).use(require("markdown-it-mark"));
+
+md.renderer.rules.code_inline = function (tokens: any, idx: any, options: any, env: any, self: any) {
+  return `<code style="font-family:SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;padding:0.2em 0.4em;margin:0;font-size:85%;background-color:rgba(175,184,193,0.2);border-radius:6px;color:#850000;">${md.utils.escapeHtml(tokens[idx].content)}</code>`;
+};
 
 export function renderMarkdown(text: string) {
   return md.render(text);
