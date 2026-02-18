@@ -160,10 +160,16 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand("md2outlook.openInWebBrowser", async (editor) => {
-		const editorUri = editor.document.uri; // Get the Uri of the current document
-		const filePath = editorUri.fsPath.replace(/\\/g, '/'); // Replace backslashes with forward slashes
-		const fileUrl = `file:///${filePath}`; // Create the file URL
-	
+		let filePath = editor.document.uri.fsPath;
+
+		if (editor.document.isUntitled || !filePath) {
+			const fileName = `md2outlook_${Date.now()}.md`;
+			filePath = path.join(os.tmpdir(), fileName);
+			fs.writeFileSync(filePath, editor.document.getText(), 'utf-8');
+		}
+
+		const fileUrl = vscode.Uri.file(filePath).toString(true);
+
 		exec(`start msedge "${fileUrl}"`, (error, stdout, stderr) => {
 			if (error) {
 				vscode.window.showErrorMessage(`Error opening file in Edge: ${error.message}`);
