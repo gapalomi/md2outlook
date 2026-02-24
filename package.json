@@ -151,6 +151,7 @@
     "highlight.js": "^11.9.0",
     "html-to-text": "^9.0.5",
     "jsdom": "^26.0.0",
+    "juice": "^11.1.1",
     "markdown-it": "^13.0.2",
     "markdown-it-mark": "^3.0.1",
     "tslib": "^2.8.1",

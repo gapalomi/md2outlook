@@ -13,9 +13,10 @@ import { markdownToConfluence } from './confluence';
 import { replaceVsCodeLinksToGithub } from './githubLinks';
 import * as xclip from "xclip";
 import * as os from 'os';
-import { URL } from 'url';
 let DEFAULT_STYLESHEET = '';
 import { exec } from 'child_process';
+import { JSDOM } from 'jsdom';
+const juice = require('juice');
 
 
 
@@ -49,6 +50,69 @@ function dedent(text: string): string {
         }
         return line.substring(minIndent);
     }).join('\n');
+}
+
+/**
+ * Extract the innerHTML of the <body> from a full HTML document string.
+ * We only put the body fragment on the clipboard — a full document with
+ * <html>/<head>/<script> causes Outlook's "complex elements" warning.
+ */
+function extractBodyFragment(html: string): string {
+	try {
+		const dom = new JSDOM(html);
+		return dom.window.document.body.innerHTML;
+	} catch (_) {
+		// Fallback: crude regex strip of everything outside <body>
+		const m = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+		return m ? m[1] : html;
+	}
+}
+
+/**
+ * Remove elements that cause Outlook to pop up "content contains complex elements":
+ *  - All <script> tags (clipboard.js, inline scripts)
+ *  - External <link> tags (CDN stylesheets such as devicons)
+ * These are only needed for the browser-preview path, not for email.
+ */
+function stripComplexElements(html: string): string {
+	try {
+		const dom = new JSDOM(html);
+		const doc = dom.window.document;
+		doc.querySelectorAll('script').forEach((el: any) => el.remove());
+		doc.querySelectorAll('link[rel="stylesheet"]').forEach((el: any) => el.remove());
+		return dom.serialize();
+	} catch (e) {
+		// Fallback to regex strip if JSDOM fails
+		return html
+			.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+			.replace(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi, '');
+	}
+}
+
+/**
+ * juice cannot inline pseudo-selectors (e.g. tr:nth-child(2n)).
+ * Walk every <table> and manually apply the alternating-row background colour
+ * so Outlook renders the striped table rows correctly.
+ */
+function applyNthChildTableRows(html: string): string {
+	try {
+		const dom = new JSDOM(html);
+		const doc = dom.window.document;
+		const tables = doc.querySelectorAll('table');
+		tables.forEach((table: any) => {
+			const rows = table.querySelectorAll('tr');
+			rows.forEach((row: any, index: number) => {
+				// nth-child is 1-based; even rows → index 1, 3, 5 …
+				if ((index + 1) % 2 === 0) {
+					const existing = row.getAttribute('style') || '';
+					row.setAttribute('style', (existing ? existing + ';' : '') + 'background-color:#f6f8fa');
+				}
+			});
+		});
+		return dom.serialize();
+	} catch (e) {
+		return html;
+	}
 }
 
 // This method is called when your extension is activated
@@ -88,11 +152,10 @@ export function activate(context: vscode.ExtensionContext) {
 			//WA to generate quotes
 			html = html.replaceAll("<blockquote>", `<table width="80%" cellspacing="0" cellpadding="0" style="width:80%"><tr><td class="quote">`);
 			html = html.replaceAll("</blockquote>", "</td></tr></table><p>&nbsp;</p>");
-			html = html.replaceAll("<span ", `<span style="margin:auto" `);
 
-			// Wrap code blocks in a table for Outlook border support
-			html = html.replaceAll("<pre>", `<table width="80%" cellpadding="5" cellspacing="0" style="width:80%;background-color:#f6f8fa;border:1px solid #d0d7de;border-radius:3px;" bgcolor="#f6f8fa"><tr><td><pre style="margin:0;border:none;background-color:#f6f8fa;">`);
-			html = html.replaceAll("</pre>", `</pre></td></tr></table><p>&nbsp;</p>`);
+			// Wrap any remaining <pre> blocks (e.g. from raw HTML in markdown) for Outlook
+			html = html.replaceAll("<pre>", `<table width="80%" cellpadding="5" cellspacing="0" style="width:80%;background-color:#f6f8fa;border:1px solid #d0d7de;border-radius:3px;" bgcolor="#f6f8fa"><tr><td><div style="font-family:SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:85%;color:#24292f;">`);
+			html = html.replaceAll("</pre>", `</div></td></tr></table><p>&nbsp;</p>`);
 
 			let htmlTemplate = fs.readFileSync(path.join(gContext.extensionPath,'static', 'htmlTemplate.html'), 'utf-8');;
 			let template = Handlebars.compile(htmlTemplate);
@@ -112,15 +175,40 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}
 
+			// Inline all CSS so Outlook (which strips <style> blocks) renders correctly
+			htmlDocument = juice(htmlDocument, { removeStyleTags: true, applyStyleTags: true, preserveMediaQueries: false });
+
+			// juice cannot inline pseudo-selectors like tr:nth-child(2n); apply manually
+			htmlDocument = applyNthChildTableRows(htmlDocument);
+
+			// Remove <script> and external <link> tags – Outlook flags these as "complex
+			// elements" and requires the user to choose "Keep Source Formatting" explicitly.
+			htmlDocument = stripComplexElements(htmlDocument);
+
             const tempDir = os.tmpdir();
             const tempFile = path.join(tempDir, `md2outlook_${Date.now()}.html`);
-            fs.writeFileSync(tempFile, htmlDocument);
-            const tempUrl = new URL(`file://${tempFile}`);
 
-            const shell = xclip.getShell();
-            const cb = shell.getClipboard();
-            await cb.copyTextHtml(tempUrl);
-            
+			// Write only the <body> innerHTML as the clipboard fragment.
+			// Passing a full HTML document (with <html>/<head>/<script>) to Outlook
+			// triggers its "complex elements" warning. An HTML fragment avoids this.
+			const bodyFragment = extractBodyFragment(htmlDocument);
+            fs.writeFileSync(tempFile, bodyFragment, 'utf-8');
+
+			// Use our own CF_HTML PowerShell script instead of xclip's copyTextHtml.
+			// xclip uses Set-Clipboard -ashtml which dumps the whole document and
+			// does not set proper StartFragment/EndFragment byte offsets.
+			const ps1Script = path.join(gContext.extensionPath, 'static', 'set_clipboard_html.ps1');
+			await new Promise<void>((resolve, reject) => {
+				const proc = child_process.spawn('powershell.exe', [
+					'-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+					'-File', ps1Script, tempFile
+				]);
+				proc.on('close', (code) => {
+					if (code === 0) { resolve(); } else { reject(new Error(`PS1 exit ${code}`)); }
+				});
+				proc.on('error', reject);
+			});
+
             // Clean up temp file after a short delay to ensure clipboard tool has read it
             setTimeout(() => {
                 if (fs.existsSync(tempFile)) {

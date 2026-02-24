@@ -5,49 +5,114 @@ import TurndownService from "turndown";
 var turndownPluginGfm = require("turndown-plugin-gfm");
 
 const styleRules = [
-  { selectors: [".hljs-doctag", ".hljs-keyword", ".hljs-meta .hljs-keyword", ".hljs-template-tag", ".hljs-template-variable", ".hljs-type", ".hljs-variable.language_"], style: "color: #d73a49" },
-  { selectors: [".hljs-title", ".hljs-title.class_", ".hljs-title.class_.inherited__", ".hljs-title.function_"], style: "color: #6f42c1" },
-  { selectors: [".hljs-attr", ".hljs-attribute", ".hljs-literal", ".hljs-meta", ".hljs-number", ".hljs-operator", ".hljs-selector-attr", ".hljs-selector-class", ".hljs-selector-id", ".hljs-variable"], style: "color: #005cc5" },
-  { selectors: [".hljs-meta .hljs-string", ".hljs-regexp", ".hljs-string"], style: "color: #032f62" },
-  { selectors: [".hljs-built_in", ".hljs-symbol"], style: "color: #e36209" },
-  { selectors: [".hljs-code", ".hljs-comment", ".hljs-formula"], style: "color: #6a737d" },
-  { selectors: [".hljs-name", ".hljs-quote", ".hljs-selector-pseudo", ".hljs-selector-tag"], style: "color: #22863a" },
-  { selectors: [".hljs-subst"], style: "color: #24292e" }
+  { selectors: [".hljs-doctag", ".hljs-keyword", ".hljs-meta .hljs-keyword", ".hljs-template-tag", ".hljs-template-variable", ".hljs-type", ".hljs-variable.language_"], style: "color:#d73a49" },
+  { selectors: [".hljs-title", ".hljs-title.class_", ".hljs-title.class_.inherited__", ".hljs-title.function_"], style: "color:#6f42c1" },
+  { selectors: [".hljs-attr", ".hljs-attribute", ".hljs-literal", ".hljs-meta", ".hljs-number", ".hljs-operator", ".hljs-selector-attr", ".hljs-selector-class", ".hljs-selector-id", ".hljs-variable"], style: "color:#005cc5" },
+  { selectors: [".hljs-meta .hljs-string", ".hljs-regexp", ".hljs-string"], style: "color:#032f62" },
+  { selectors: [".hljs-built_in", ".hljs-symbol"], style: "color:#e36209" },
+  { selectors: [".hljs-code", ".hljs-comment", ".hljs-formula"], style: "color:#6a737d" },
+  { selectors: [".hljs-name", ".hljs-quote", ".hljs-selector-pseudo", ".hljs-selector-tag"], style: "color:#22863a" },
+  { selectors: [".hljs-subst"], style: "color:#24292e" }
 ];
 
-function applyInlineStyles(html: string): string {
+const MONO_FONT = "SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace";
+
+/**
+ * Process hljs HTML in a single JSDOM pass:
+ *  1. Inline all hljs class-based colours as style attributes.
+ *  2. Walk every text node and replace \n → <br> and leading spaces → &nbsp;
+ *     so that indentation is preserved without needing <pre>.
+ * Using a single DOM pass avoids the naive line-split approach that breaks
+ * multi-line spans (e.g. block comments in hljs output).
+ */
+function processHighlightedCode(html: string): string {
   try {
     const dom = new JSDOM(html);
     const doc = dom.window.document;
 
+    // Step 1 – inline colours
     for (const rule of styleRules) {
       for (const selector of rule.selectors) {
-        const elements = doc.querySelectorAll(selector);
-        elements.forEach((element: any) => {
-          element.style.cssText += (element.style.cssText && !element.style.cssText.endsWith(";") ? ";" : "") + rule.style;
+        doc.querySelectorAll(selector).forEach((el: any) => {
+          const existing = el.getAttribute('style') || '';
+          const sep = existing && !existing.endsWith(';') ? ';' : '';
+          el.setAttribute('style', existing + sep + rule.style);
         });
       }
     }
 
+    // Step 2 – convert text-node whitespace so <pre> is not needed
+    const walker = doc.createTreeWalker(
+      doc.body,
+      // NodeFilter.SHOW_TEXT = 0x4
+      0x4
+    );
+    const textNodes: any[] = [];
+    let n: any;
+    while ((n = walker.nextNode())) { textNodes.push(n); }
+
+    for (const textNode of textNodes) {
+      const text: string = textNode.textContent ?? '';
+      if (!text.includes('\n') && !/^ +/m.test(text)) { continue; }
+
+      const fragment = doc.createDocumentFragment();
+      const lines: string[] = text.split('\n');
+      lines.forEach((line: string, i: number) => {
+        if (i > 0) {
+          fragment.appendChild(doc.createElement('br'));
+        }
+        // Replace leading spaces/tabs with non-breaking spaces
+        const leadMatch = line.match(/^[ \t]+/);
+        if (leadMatch) {
+          const indent = leadMatch[0].replace(/\t/g, '    ');
+          fragment.appendChild(doc.createTextNode('\u00a0'.repeat(indent.length)));
+          fragment.appendChild(doc.createTextNode(line.slice(leadMatch[0].length)));
+        } else if (line !== '') {
+          fragment.appendChild(doc.createTextNode(line));
+        }
+      });
+
+      textNode.parentNode.replaceChild(fragment, textNode);
+    }
+
     return doc.body.innerHTML;
-  } catch (error) {
-    console.error("Error applying inline styles:", error);
-    return html;
+  } catch (err) {
+    console.error('processHighlightedCode error:', err);
+    // Fallback: plain-text escape, newlines → <br>
+    return html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
   }
 }
 
 var md = require("markdown-it")({
-  highlight: function (str: any, lang: any) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        const highlighted = hljs.highlight(str, { language: lang }).value;
-        return applyInlineStyles(highlighted);
-      } catch (__) {}
-    }
-
-    return ""; // use external default escaping
-  },
+  highlight: function (_str: any, _lang: any) { return ''; },
 }).use(require("markdown-it-mark"));
+
+// Override fence renderer – avoid <pre> entirely; Outlook strips coloured
+// <span> elements inside <pre> but preserves them inside <div>.
+md.renderer.rules.fence = function (tokens: any, idx: any) {
+  const token = tokens[idx];
+  const lang = (token.info || '').trim().split(/\s+/)[0];
+  const raw = token.content;
+
+  let inner: string;
+  if (lang && hljs.getLanguage(lang)) {
+    try {
+      inner = processHighlightedCode(hljs.highlight(raw, { language: lang }).value);
+    } catch (_) {
+      inner = processHighlightedCode(raw);
+    }
+  } else {
+    inner = processHighlightedCode(raw);
+  }
+
+  return (
+    `<table width="80%" cellpadding="5" cellspacing="0" ` +
+    `style="width:80%;background-color:#f6f8fa;border:1px solid #d0d7de;" ` +
+    `bgcolor="#f6f8fa"><tr><td>` +
+    `<div style="font-family:${MONO_FONT};font-size:85%;line-height:1.45;color:#24292f;">${inner}</div>` +
+    `</td></tr></table><p>&nbsp;</p>\n`
+  );
+};
 
 md.renderer.rules.code_inline = function (tokens: any, idx: any, options: any, env: any, self: any) {
   return `<code style="font-family:SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;padding:0.2em 0.4em;margin:0;font-size:85%;background-color:rgba(175,184,193,0.2);border-radius:6px;color:#850000;">${md.utils.escapeHtml(tokens[idx].content)}</code>`;
