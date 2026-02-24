@@ -13,6 +13,7 @@ import { markdownToConfluence } from './confluence';
 import { replaceVsCodeLinksToGithub } from './githubLinks';
 import * as xclip from "xclip";
 import * as os from 'os';
+import { URL } from 'url';
 let DEFAULT_STYLESHEET = '';
 import { exec } from 'child_process';
 import { JSDOM } from 'jsdom';
@@ -194,20 +195,10 @@ export function activate(context: vscode.ExtensionContext) {
 			const bodyFragment = extractBodyFragment(htmlDocument);
             fs.writeFileSync(tempFile, bodyFragment, 'utf-8');
 
-			// Use our own CF_HTML PowerShell script instead of xclip's copyTextHtml.
-			// xclip uses Set-Clipboard -ashtml which dumps the whole document and
-			// does not set proper StartFragment/EndFragment byte offsets.
-			const ps1Script = path.join(gContext.extensionPath, 'static', 'set_clipboard_html.ps1');
-			await new Promise<void>((resolve, reject) => {
-				const proc = child_process.spawn('powershell.exe', [
-					'-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-					'-File', ps1Script, tempFile
-				]);
-				proc.on('close', (code) => {
-					if (code === 0) { resolve(); } else { reject(new Error(`PS1 exit ${code}`)); }
-				});
-				proc.on('error', reject);
-			});
+			const tempUrl = new URL(`file://${tempFile}`);
+			const shell = xclip.getShell();
+			const cb = shell.getClipboard();
+			await cb.copyTextHtml(tempUrl);
 
             // Clean up temp file after a short delay to ensure clipboard tool has read it
             setTimeout(() => {
