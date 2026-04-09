@@ -151,7 +151,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			//WA to generate quotes
-			html = html.replaceAll("<blockquote>", `<table width="80%" cellspacing="0" cellpadding="0" style="width:80%"><tr><td class="quote">`);
+			html = html.replaceAll("<blockquote>", `<table width="80%" cellspacing="0" cellpadding="0" style="width:80%"><tr><td class="quote" style="padding:0 1em;color:#656d76;border-left:4px solid #0969da;font-style:italic;">`);
 			html = html.replaceAll("</blockquote>", "</td></tr></table><p>&nbsp;</p>");
 
 			// Wrap any remaining <pre> blocks (e.g. from raw HTML in markdown) for Outlook
@@ -171,7 +171,7 @@ export function activate(context: vscode.ExtensionContext) {
 				let imagePath = path.join(vscode.Uri.file(path.dirname(editor.document.uri.fsPath)).fsPath, imgPath);
 				if (fs.existsSync(imagePath)) {
 					let imgData = fs.readFileSync(imagePath);
-					let base64Image = Buffer.from(imgData).toString('base64');
+					let base64Image = Buffer.from(imgData as unknown as string).toString('base64');
 					htmlDocument = htmlDocument.replace(match[0],`<img src="data:image/png;base64,${base64Image}"`);
 				}
 			}
